@@ -5,7 +5,7 @@
 2. Webserver Linux Distro: Centos
 3. Database Server Linux Distro: Ubuntu
 4. Storage: NFS
-5. 5Programming Language: PHP
+5. Programming Language: PHP
 6. Code Repository: GitHub
 
 
