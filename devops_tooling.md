@@ -14,85 +14,98 @@
 
 ##Step 1; Preparing the NFS Server:
 
-change to root user
+Change to root user
 `sudo su -`
     
 1. **check all disk availabe on the machine**
 `lsblk`
-![listing all the blocks available]("C:\Users\LIVINGSTONE\devops_git\Devops_project\images\lsblk.png")
+> Before logical Volumes can be created, physical volumes and volume group must be created first.
+2. **To create Logical volumes with the the disk**
 
-2. ***To create physical volumes with the the disk***
-`pvcreate /dev/sdb /dev/sdc /dev/sdd`
+  - To create physical volumes 
+ `pvcreate /dev/sdb /dev/sdc /dev/sdd`
 
-*To create Volume groups for apps, logs and opt*
-`vgcreate vg-apps /dev/sdb`
-`vgcreate vg-logs /dev/sdc`
-`vgcreate vg-opt /dev/sdd`
+- To create Volume groups for apps, logs and opt
 
-*To create logical volumes for apps, logs and opt*.
-`lvcreate -l 100%FREE -n lv-apps vg-apps`
-`lvcreate -l 100%FREE -n lv-logs vg-logs`
-`lvcreate -l 100%FREE -n lv-opt vg-opt` 
+   `vgcreate vg-apps /dev/sdb`
+ `vgcreate vg-logs /dev/sdc`
+  `vgcreate vg-opt /dev/sdd`
 
-3.***To mount the logical volumes***
+- To create logical volumes for apps, logs and opt
+  `lvcreate -l 100%FREE -n lv-apps vg-apps`
+    `lvcreate -l 100%FREE -n lv-logs vg-logs`
+-  `lvcreate -l 100%FREE -n lv-opt vg-opt` 
+
+3.**To mount the logical volumes**
 > To mount the logical volumnes, a mount point will be created first, then it will be formated with a filesystem. For this project it was dformatted in `xfs` filesystem.
 
-make directory for html
-`mkdir /mnt/html`  
-
-make directory for logs
+- Make directory for html
+    `mkdir /mnt/html`  
+- Make directory for logs
 `mkdir /mnt/logs`  
 
-*Formatiing all Logical volumes to an `xfs` filesystem*
-`mkfs.xfs /dev/vg-apps/lv-apps`
-`mkfs.xfs /dev/vg-logs/lv-logs` 
-`mount /dev/vg-apps/lv-apps` 
-`mount /dev/vg-apps/lv-apps`
+>Formatting all Logical volumes to an `xfs` filesystem before mounting the logical volumes on the mount point
 
-*To confirm the mounts*
-`df -h`
+- `mkfs.xfs /dev/vg-apps/lv-apps`
+
+- `mkfs.xfs /dev/vg-logs/lv-logs`
+
+>Mounting the Logical volumes
+
+- `mount /dev/vg-apps/lv-apps` 
+
+- `mount /dev/vg-apps/lv-apps`
+
+>To confirm the mounts
+
+- `df -h`
 
 4. **To install and configure NFS server**
-install nfs server
-`dnf install nfs-utils -y`
-start nfs server
+   
+- Install nfs server
+ `dnf install nfs-utils -y`
+- start nfs server
 `systemctl start nfs-server.service`
-enable the nfs server to boot on startup
+- enable the nfs server to boot on startup
 `systemctl enable nfs-server.service` 
-confirm the status of nfs server
+- confirm the status of nfs server
 `systemctl status nfs-server.service`
  
-######To exports the mount for the webservers
+5. **To exports the mount for the webservers**
 >To avoid file restrictions on the NFS share directory, it’s advisable to configure directory ownership as shown. This allows creation of files from the client systems without encountering any permission issues.
 
-`chown -R nobody: /mnt/html`
-`chmod -R 777 /mnt/html`
+- For `/mnt/html`
+   `chown -R nobody: /mnt/html`
+  `chmod -R 777 /mnt/html`
 
+- For `/mnt/logs`
 `chown -R nobody: /mnt/logs`
 `chmod -R 777 /mnt/logs`
 
-*To edit the `/etc/exports` and paste the following*
-`nano /etc/exports`
+> To exports the mounts points, i edited the `/etc/exports` and paste the following. The IP address 192.168.233.0/24 is the IP range covering all the IPs of the webservers client.
 
->                             /etc/fstab
+`sudo nano /etc/exports`
+
+>                             /etc/exports
     /mnt/html 192.168.233.0/24(rw,sync,no_all_squash,root_squash)
     /mnt/logs 192.168.233.0/24(rw,sync,no_all_squash,root_squash)
 
-*for the cahnges to be effected, the nfs servcer must be restarted*
+- For the cahnges to be effected, the nfs servcer must be restarted
 `systemctl restart nfs-utils.service`
 
-*to export the files that has been created*
+- To export the files that has been created
 `exportfs -arv`
-*to display exported files*
+- To display exported files
 `exportfs -s`
 
-*configure the firewall to allow clients*
+
+- Configure the firewall to allow clients
 >`firewall-cmd --permanent --add-service=nfs`
 `firewall-cmd --permanent --add-service=rpc-bind`
 `firewall-cmd --permanent --add-service=mountd`
 `firewall-cmd --reload`
 
-*To ensure that all the configuration is persistent after reboot this was pasted in the `/etc/fstab` folder*
+>To ensure that all the configuration is persistent after reboot this was pasted in the `/etc/fstab` folder
 
 `sudo nano /etc/fstab`
 >                            /etc/fstab
@@ -102,65 +115,95 @@ confirm the status of nfs server
 
 ##Step 2; Configuring The Database
 
-*installing mysql-server*
+1. Installing MySQL
+- Installing mysql-server
 `dnf install mysql-server`
 
-*start mysql service*
+- Start mysql service
 `systemctl start mysqld.service`
-*confirm the status of mysql-server*
+- Confirm the status of mysql-server*
 `systemctl status mysqld`
-*to enablke mysql-server on startup*
+
+- To enable mysql-server on startup
 `systemctl enable mysqld`
 
-*To secure mkysql installation*
+- To secure mysql installation
 `mysql_secure_installation`
-> answer the questions prompted by the server
+> Appropiate answers was given to prompted questions
 
-***to create a database and a user***
-*to login to mysql server as a root user*
+
+
+>To create a database and a user
+
+
+
+  - to login to mysql server as a root user
 `mysql -u root -p`
 
-create database tooling and assign privinleges
->`CREATE USER 'webaccess'@'192.168.233.%' IDENTIFIED BY 'david';`
-`GRANT ALL PRIVILEGES ON * . * TO 'webaccess'@'192.168.233.%';`
+   - create database 
+`CREATE DATABASE tooling`
+ 
+  
+   - create user webaccess and grant appropiate access
+  > `CREATE USER 'webaccess'@'192.168.233.0/255.255.255.0' IDENTIFIED WITH mysql_native_password BY 'david';`
+`GRANT ALL PRIVILEGES ON tooling.* TO 'webaccess'@'192.168.233.0/255.255.255.0' WITH GRANT OPTION;`
+`FLUSH PRIVILEGES;`
 
+- to exit of the database server
+   `exit`
+- to allow traffic only from the webservers `subnet cidr`
+  `ufw allow from 192.168.233.0/24 to any port 3306`
+  
 ##Step 3: Preparing The webservers
-
-1. *install nfs-client*
+> To allow the webserver connect to the database server as a client, Mysql-common has to be installed.
+1. install nfs-client
 `dnf install nfs-utils nfs4-acl-tools -y`
 
-to show the availabale exports folder in the NFS storage
+- to show the availabale exports folder in the NFS storage
 `showmount -e 192.168.233.136`
 
-2. *to mount `/var/wwww/html`  targeting the export for apps*
+2. To mount `/var/www/`  targeting the export for apps
+     `mkdir /html.bak`
+     `cp -R -v /var/www/ /html.bak`
+    `mount -t nfs 192.168.233.136:/mnt/html /var/www`
+    `cp -R -v /html.bak/* /var/www/`
 
-`mount -t nfs 192.168.233.136:/mnt/html /var/www`
-
-3. *install apache*
+3. Install apache
 `dnf install httpd`
 
-*start httpd server*
+- start httpd server
    `systemctl start httpd`
 
-*configure the firewall*
+- configure the firewall
 >`firewall-cmd --permanent --add-service=http`
 `firewall-cmd --permanent --list-all`
 `firewall-cmd –reload`
 
-4.*The log folder for apache is `/var/log/httpd`*
+4. The log folder for apache is `/var/log/httpd`
+        `mkdir /httpd-log.bak`
+    `cp -R -v /var/log/httpd /httpd-log.bak`
+      `mount -t nfs 192.168.233.136:/mnt/logs /var/log/httpd`
+      `cp -R -v /httpd-log.bak /var/log/httpd `
 
+
+    
 5. >I followed the steps in the this [link](https://youtu.be/f5grYMXbAV0) to fork a repository.
 
 6. >To deploy the tooling website to the webserver
 after forking the tooling repository to my github account.
 
-To clone the repository to my local machine
+- clone the repository to my local machine
 
-`git clone https://github.com` 
+  `git clone https://github.com/Livingstone95/tooling.git` 
 `mkdir /var/www/html/tooling`
+`cp -R -v tooling/html/*  /var/www/html `
 
-copy the html folder of from the clone repository to the `/vwr/www/html/tooling` folder on my webserver which the is root folder for apache
-`rsync -avz --no-o --no-g --no-perms /tooling/tooling/html/* /var/www/html/tooling`
+`semanage fcontext -a -t httpd_sys_content_t "/var/www/html(/.*)?"`
+`semanage fcontext -a -t httpd_log_t "/var/log/httpd/logs(/.*)?"`
+`setsebool -P httpd_can_network_connect 1`
+`setsebool -P httpd_can_network_connect_db 1`
 
-reload the httpd service
-`systemctl resart httpd`
+`mysql -h 192.168.233.135  -u webaccess -p tooling < tooling-db.sql`
+`nano tooling-db.sql`
+`mysql -u webaccess -p tooling < tooling-db.sql`
+`nano /var/www/html/functions.php`
